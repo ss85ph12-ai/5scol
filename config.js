@@ -2,9 +2,9 @@
 const APP_CONFIG = {
     // 1. مفتاح قاعدة البيانات الخاص بالمدرسة
     DB_KEY: 'skol_al_rhman_db',
-    
+
     // 2. إصدار التطبيق (قم بتغييره لإجبار الأجهزة على تحديث النظام)
-    APP_VERSION: 'v22',
+    APP_VERSION: 'v23',
 
     // 3. إعدادات Firebase الخاصة بالنسخة
     FIREBASE_CONFIG: {
