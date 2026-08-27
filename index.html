@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -7,21 +7,21 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#a777e3">
     <link rel="apple-touch-icon" href="./icon-192x192.png">
-
-    <link rel="stylesheet" href="style.css?v=v23">
+    
+    <link rel="stylesheet" href="style.css?v=v18">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
+    
     <script src="config.js"></script>
 
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
       import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
-
+      
       // قراءة مفاتيح فايربيس من ملف config.js مباشرة
       const app = initializeApp(APP_CONFIG.FIREBASE_CONFIG);
-
+      
       // تجهيز مكتبة Firestore وتمريرها لتعمل داخل النظام
       window.fsDb = getFirestore(app);
       window.fsDoc = doc;
@@ -165,7 +165,7 @@
 
         <div id="tab-settings" class="tab-content">
             <button type="button" class="btn-3d success w-100 mb-3" id="trigger-install-modal" style="display:none; animation: fadeIn 0.5s;"><i class="fas fa-download"></i> تثبيت التطبيق على الجهاز</button>
-
+            
             <div class="glass p-3 mb-3 text-center flex-between">
                 <h3 id="display-school-name" style="margin: 0;"></h3>
                 <button type="button" class="btn-3d" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
@@ -191,7 +191,7 @@
                 <input type="text" id="edit-school-date" class="glass-input" placeholder="العام الدراسي (مثال: 2026-2027)">
                 <button type="button" class="btn-3d success w-100 mt-1" onclick="updateSchool()"><i class="fas fa-save"></i> حفظ التعديل</button>
             </div>
-
+            
             <div class="glass p-3 mb-3">
                 <h3><i class="fas fa-cogs"></i> إدارة النظام المتقدمة</h3>
                 <div class="grid-2 mt-2 mb-2">
@@ -277,7 +277,6 @@
                 <select id="std-section" class="glass-input" required><option value="">اختر الشعبة</option></select>
                 <input type="text" id="std-reg" class="glass-input" placeholder="رقم القيد" required>
                 <input type="text" id="std-name" class="glass-input" placeholder="الاسم الثلاثي للطالب" required>
-                <input type="text" id="std-father" class="glass-input" placeholder="اسم الأب / ولي الأمر (حساب العائلة)">
                 <input type="text" id="std-phone" class="glass-input" placeholder="رقم الموبايل (10 أرقام فقط)" inputmode="numeric" maxlength="10" required>
                 <input type="number" id="std-fee" class="glass-input" step="0.25" min="0.25" placeholder="القسط الكلي المقرر (د.ع)" required>
                 <input type="text" id="std-notes" class="glass-input" placeholder="ملاحظات (اختياري)">
@@ -324,12 +323,12 @@
                 </div>
                 <div style="font-size: 20px; font-weight: bold; color: #fff; background: #e74c3c; padding: 5px 20px; border-radius: 10px; margin-right: 20px; margin-top: 10px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" id="prof-reg"></div>
             </div>
-
+            
             <div class="grid-4 finance-summary-grid mt-2 mb-2 text-center">
-                <div class="glass p-2 finance-card finance-card-total">كلي العائلة<br><b id="prof-total">0</b></div>
-                <div class="glass p-2 finance-card finance-card-paid">واصل العائلة<br><b id="prof-paid">0</b></div>
-                <div class="glass p-2 finance-card finance-card-rem">متبقي العائلة<br><b id="prof-rem">0</b></div>
-                <div class="glass p-2 finance-card finance-card-count">دفعات العائلة<br><b id="prof-pay-count">0</b></div>
+                <div class="glass p-2 finance-card finance-card-total">الكلي<br><b id="prof-total">0</b></div>
+                <div class="glass p-2 finance-card finance-card-paid">الواصل<br><b id="prof-paid">0</b></div>
+                <div class="glass p-2 finance-card finance-card-rem">المتبقي<br><b id="prof-rem">0</b></div>
+                <div class="glass p-2 finance-card finance-card-count">الدفعات<br><b id="prof-pay-count">0</b></div>
             </div>
 
             <div class="grid-3 mb-2">
@@ -348,20 +347,11 @@
     <div id="payment-modal" class="modal" style="z-index: 2000;">
         <div class="modal-content glass">
             <span class="close-btn" onclick="hideModal('payment-modal')">&times;</span>
-            <h3>استلام دفعة لحساب العائلة</h3>
-            <div id="pay-family-label" class="glass p-2 mt-2 mb-2" style="font-weight:bold;"></div>
+            <h3>استلام قسط من الطالب</h3>
             <div class="flex-row mt-2 mb-2">
                 <input type="date" id="pay-date" class="glass-input m-0">
                 <input type="number" id="pay-amount" class="glass-input m-0" placeholder="المبلغ المستلم">
             </div>
-            <label for="pay-allocation-type" style="font-size:14px; font-weight:bold;">تخصيص الدفعة:</label>
-            <select id="pay-allocation-type" class="glass-input mt-1" onchange="updatePaymentAllocationOptions()">
-                <option value="family">دفعة عائلية باسم الأب (بدون توزيع)</option>
-                <option value="student">لطالب محدد</option>
-                <option value="split">تقسيم بالتساوي بين الأولاد</option>
-            </select>
-            <select id="pay-target-member" class="glass-input" style="display:none;"></select>
-            <div id="pay-allocation-note" class="glass p-2 mb-2" style="font-size:13px;"></div>
             <button type="button" class="btn-3d success w-100" onclick="submitPayment()"><i class="fas fa-print"></i> حفظ وطباعة الوصل</button>
         </div>
     </div>
@@ -498,13 +488,13 @@
             <h3><i class="fas fa-users"></i> ترحيل صف كامل للسنة الجديدة</h3>
             <label style="font-size: 14px; font-weight: bold; color: #3498db;">السنة المستهدفة:</label>
             <select id="bulk-prom-target-year" class="glass-input mt-1 mb-2"></select>
-
+            
             <label style="font-size: 14px; font-weight: bold; color: #e74c3c;">من (السنة الحالية):</label>
             <div class="grid-2 mt-1 mb-2">
                 <select id="bulk-prom-from-class" class="glass-input m-0" onchange="updateDropdown('bulk-prom-from-class', 'bulk-prom-from-section')"></select>
                 <select id="bulk-prom-from-section" class="glass-input m-0"><option value="">اختر الشعبة</option></select>
             </div>
-
+            
             <label style="font-size: 14px; font-weight: bold; color: #2ecc71;">إلى (السنة الجديدة):</label>
             <div class="grid-2 mt-1 mb-2">
                 <select id="bulk-prom-to-class" class="glass-input m-0" onchange="updateDropdown('bulk-prom-to-class', 'bulk-prom-to-section')"></select>
@@ -517,8 +507,8 @@
     </div>
 
     <div id="print-area"></div>
-    <script src="script.js?v=v23"></script>
-
+    <script src="script.js?v=v18"></script>
+    
     <script>
       let newWorker;
       if ('serviceWorker' in navigator) {
