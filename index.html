@@ -395,7 +395,7 @@
     <div id="pay-staff-modal" class="modal" style="z-index: 2000;">
         <div class="modal-content glass">
             <span class="close-btn" onclick="hideModal('pay-staff-modal')">&times;</span>
-            <h3><i class="fas fa-hand-holding-usd"></i> صرف راتب إداري (نظام تفاعلي)</h3>
+            <h3 id="staff-pay-modal-title"><i class="fas fa-hand-holding-usd"></i> صرف راتب إداري (نظام تفاعلي)</h3>
             <div class="grid-2 mt-2 mb-1 text-center">
                 <div class="glass p-2">سنوات الخدمة<br><b id="staff-pay-years" style="color:#3498db;">0</b></div>
                 <div class="glass p-2">إضافة الخدمة<br><b id="staff-pay-service-total" style="color:#2ecc71;">0</b></div>
@@ -412,14 +412,14 @@
                 <span style="font-weight:bold;">الصافي المستحق:</span>
                 <b id="staff-pay-net" style="color:#e74c3c; font-size:20px;">0</b>
             </div>
-            <button type="button" class="btn-3d success w-100" onclick="submitStaffPayment()"><i class="fas fa-check"></i> تأكيد الدفع</button>
+            <button type="button" id="staff-pay-submit" class="btn-3d success w-100" onclick="submitStaffPayment()"><i class="fas fa-check"></i> تأكيد الدفع</button>
         </div>
     </div>
 
     <div id="pay-teacher-modal" class="modal" style="z-index: 2000;">
         <div class="modal-content glass">
             <span class="close-btn" onclick="hideModal('pay-teacher-modal')">&times;</span>
-            <h3><i class="fas fa-hand-holding-usd"></i> صرف راتب مدرس (نظام تفاعلي)</h3>
+            <h3 id="teach-pay-modal-title"><i class="fas fa-hand-holding-usd"></i> صرف راتب مدرس (نظام تفاعلي)</h3>
             <div class="grid-2 mt-2 mb-1 text-center">
                 <div class="glass p-2">سنوات الخدمة<br><b id="teach-pay-years" style="color:#3498db;">0</b></div>
                 <div class="glass p-2">إضافة الخدمة<br><b id="teach-pay-service-total" style="color:#2ecc71;">0</b></div>
@@ -442,7 +442,7 @@
                 <span style="font-weight:bold;">الصافي المستحق:</span>
                 <b id="teach-pay-net" style="color:#e74c3c; font-size:20px;">0</b>
             </div>
-            <button type="button" class="btn-3d success w-100" onclick="submitTeacherPayment()"><i class="fas fa-check"></i> تأكيد الدفع</button>
+            <button type="button" id="teach-pay-submit" class="btn-3d success w-100" onclick="submitTeacherPayment()"><i class="fas fa-check"></i> تأكيد الدفع</button>
         </div>
     </div>
 

@@ -156,6 +156,8 @@ const defaultSubjects = ['العربي','الرياضيات','الإنكليزي
 
 let currentStudentId = null, editingStudentId = null, tempSiblings = [], editingStaffId = null, currentTeacherId = null, currentStaffPaymentId = null;
 let editingPaymentIndex = null;
+let editingTeacherPaymentIndex = null, editingStaffPaymentIndex = null;
+let teacherPaymentServiceYears = null, staffPaymentServiceYears = null;
 let editingDirectSibMainId = null, editingDirectSibIdx = null, editingTempSibIdx = null;
 
 // ============ 2. محرك التنبيهات 3D (SweetAlert2) ============
@@ -1346,6 +1348,11 @@ function paymentMatchesMonth(dateValue, monthKey) {
     }
     return false;
 }
+function findPaymentInMonth(st, dateValue, excludedIndex = null) {
+    if(!st || !Array.isArray(st.payments) || !dateValue) return -1;
+    let monthKey = String(dateValue).slice(0, 7);
+    return st.payments.findIndex((payment, index) => index !== excludedIndex && paymentMatchesMonth(payment.date, monthKey));
+}
 function openAddStaffModal() { editingStaffId=null; document.getElementById('staff-modal-title').innerHTML='<i class="fas fa-user-plus"></i> إضافة موظف'; ['staff-name','staff-role','staff-salary','staff-start-date'].forEach(id=>document.getElementById(id).value=''); showModal('add-staff-modal'); }
 function saveStaff() { let n=document.getElementById('staff-name').value, r=document.getElementById('staff-role').value, startDate=document.getElementById('staff-start-date').value, s=parseFloat(document.getElementById('staff-salary').value)||0; if(!n||s<=0) return customAlert('يرجى إدخال الاسم والراتب بشكل صحيح', 'error'); if(editingStaffId){ let idx=db.staff.findIndex(x=>x.id===editingStaffId); db.staff[idx].name=n; db.staff[idx].role=r; db.staff[idx].startDate=startDate; db.staff[idx].hiringYear=getYearFromDate(startDate, db.staff[idx].hiringYear || new Date().getFullYear()); db.staff[idx].salary=s; } else { db.staff.push({ id:Date.now(), name:n, role:r, startDate:startDate, hiringYear:getYearFromDate(startDate), salary:s, isTeacher:false, payments:[] }); } saveDB(); hideModal('add-staff-modal'); renderStaff(); renderDual(); if(typeof Swal !== 'undefined') Swal.fire({toast:true, position:'top-end', icon:'success', title:'تم الحفظ', showConfirmButton:false, timer:1500}); }
 function editStaff(id) { editingStaffId=id; let s=db.staff.find(x=>x.id===id); document.getElementById('staff-modal-title').innerHTML='<i class="fas fa-edit"></i> تعديل موظف'; document.getElementById('staff-name').value=s.name; document.getElementById('staff-role').value=s.role; document.getElementById('staff-start-date').value=s.startDate||''; document.getElementById('staff-salary').value=s.salary; showModal('add-staff-modal'); }
@@ -1356,14 +1363,23 @@ function editTeacher(id) { editingStaffId=id; let s=db.staff.find(x=>x.id===id);
 
 function deleteStaff(id) { customConfirm("تأكيد حذف الموظف/المدرس وكل سجلات مدفوعاته؟", r=>{ if(r){db.staff=db.staff.filter(x=>x.id!==id); saveDB(); renderStaff(); renderDual(); renderDaily();} }); }
 
-function payStaff(id) {
+function payStaff(id, paymentIndex = null) {
     currentStaffPaymentId = id;
     let st = db.staff.find(x => x.id === id);
     if(!st) return;
 
-    document.getElementById('staff-pay-salary').value = st.salary || '';
-    ['staff-pay-students','staff-pay-service-amount','staff-pay-bonus','staff-pay-deduct'].forEach(el => document.getElementById(el).value = '');
-    document.getElementById('staff-pay-date').value = todayISO;
+    editingStaffPaymentIndex = Number.isInteger(paymentIndex) ? paymentIndex : null;
+    let payment = editingStaffPaymentIndex !== null && Array.isArray(st.payments) ? st.payments[editingStaffPaymentIndex] : null;
+    staffPaymentServiceYears = payment && Number.isFinite(Number(payment.serviceYears)) ? Number(payment.serviceYears) : null;
+
+    document.getElementById('staff-pay-salary').value = payment ? (payment.nominalSalary ?? payment.amount ?? '') : (st.salary || '');
+    document.getElementById('staff-pay-students').value = payment ? (payment.students || '') : '';
+    document.getElementById('staff-pay-service-amount').value = payment ? (payment.serviceAmount || '') : '';
+    document.getElementById('staff-pay-bonus').value = payment ? (payment.bonus || '') : '';
+    document.getElementById('staff-pay-deduct').value = payment ? (payment.deduct || '') : '';
+    document.getElementById('staff-pay-date').value = payment ? (payment.date || todayISO) : todayISO;
+    document.getElementById('staff-pay-modal-title').innerHTML = payment ? '<i class="fas fa-edit"></i> تعديل راتب إداري' : '<i class="fas fa-hand-holding-usd"></i> صرف راتب إداري (نظام تفاعلي)';
+    document.getElementById('staff-pay-submit').innerHTML = payment ? '<i class="fas fa-save"></i> حفظ تعديل الراتب' : '<i class="fas fa-check"></i> تأكيد الدفع';
     calcStaffSalary();
     showModal('pay-staff-modal');
 }
@@ -1373,7 +1389,7 @@ function calcStaffSalary() {
     let st = db.staff.find(x => x.id === currentStaffPaymentId);
     if(!st) return 0;
 
-    let serviceYears = getServiceYears(st);
+    let serviceYears = staffPaymentServiceYears !== null ? staffPaymentServiceYears : getServiceYears(st);
     document.getElementById('staff-pay-years').innerText = serviceYears;
 
     let nominalSalary = parseFloat(document.getElementById('staff-pay-salary').value) || 0;
@@ -1396,29 +1412,63 @@ function submitStaffPayment() {
     let st = db.staff.find(x => x.id === currentStaffPaymentId);
     if(net > 0 && dt && st) {
         if(!Array.isArray(st.payments)) st.payments = [];
-        st.payments.push({amount: net, date: dt});
+        if(findPaymentInMonth(st, dt, editingStaffPaymentIndex) !== -1) {
+            return customAlert('يوجد راتب مسجل لهذا الموظف في الشهر نفسه. افتح الدفعة السابقة واضغط تعديل.', 'warning');
+        }
+        let payment = {
+            amount: net,
+            date: dt,
+            nominalSalary: parseFloat(document.getElementById('staff-pay-salary').value) || 0,
+            students: parseFloat(document.getElementById('staff-pay-students').value) || 0,
+            serviceAmount: parseFloat(document.getElementById('staff-pay-service-amount').value) || 0,
+            bonus: parseFloat(document.getElementById('staff-pay-bonus').value) || 0,
+            deduct: parseFloat(document.getElementById('staff-pay-deduct').value) || 0,
+            serviceYears: staffPaymentServiceYears !== null ? staffPaymentServiceYears : getServiceYears(st)
+        };
+        let isEditing = editingStaffPaymentIndex !== null && st.payments[editingStaffPaymentIndex];
+        if(isEditing) st.payments[editingStaffPaymentIndex] = {...st.payments[editingStaffPaymentIndex], ...payment};
+        else st.payments.push(payment);
         saveDB();
         hideModal('pay-staff-modal');
         renderStaff(); renderDual(); renderDaily();
-        if(typeof Swal !== 'undefined') Swal.fire({toast:true, position:'top-end', icon:'success', title:'تم صرف راتب الإداري بنجاح', showConfirmButton:false, timer:1500});
+        if(typeof Swal !== 'undefined') Swal.fire({toast:true, position:'top-end', icon:'success', title:isEditing ? 'تم تعديل راتب الإداري' : 'تم صرف راتب الإداري بنجاح', showConfirmButton:false, timer:1500});
         currentStaffPaymentId = null;
+        editingStaffPaymentIndex = null;
+        staffPaymentServiceYears = null;
     } else {
         customAlert("الصافي يجب أن يكون أكبر من صفر والتاريخ مطلوب", "error");
     }
 }
 
-function payTeacher(id) {
+function payTeacher(id, paymentIndex = null) {
     currentTeacherId = id;
-    ['teach-pay-price','teach-pay-service-amount','teach-pay-lecs','teach-pay-stds','teach-pay-eval','teach-pay-bonus','teach-pay-deduct'].forEach(el=>document.getElementById(el).value='');
-    document.getElementById('teach-pay-date').value = todayISO;
+    let st = db.staff.find(x => x.id === id);
+    if(!st) return;
+
+    editingTeacherPaymentIndex = Number.isInteger(paymentIndex) ? paymentIndex : null;
+    let payment = editingTeacherPaymentIndex !== null && Array.isArray(st.payments) ? st.payments[editingTeacherPaymentIndex] : null;
+    let hasSavedDetails = payment && ['lecPrice','serviceAmount','monthlyLecs','students','evalPts','bonus','deduct'].some(key => Object.prototype.hasOwnProperty.call(payment, key));
+    teacherPaymentServiceYears = payment && Number.isFinite(Number(payment.serviceYears)) ? Number(payment.serviceYears) : null;
+
+    document.getElementById('teach-pay-price').value = payment ? (payment.lecPrice || '') : '';
+    document.getElementById('teach-pay-service-amount').value = payment ? (payment.serviceAmount || '') : '';
+    document.getElementById('teach-pay-lecs').value = payment ? (payment.monthlyLecs || '') : '';
+    document.getElementById('teach-pay-stds').value = payment ? (payment.students || '') : '';
+    document.getElementById('teach-pay-eval').value = payment ? (payment.evalPts || '') : '';
+    document.getElementById('teach-pay-bonus').value = payment ? (hasSavedDetails ? (payment.bonus || '') : (payment.amount || '')) : '';
+    document.getElementById('teach-pay-deduct').value = payment ? (payment.deduct || '') : '';
+    document.getElementById('teach-pay-date').value = payment ? (payment.date || todayISO) : todayISO;
+    document.getElementById('teach-pay-modal-title').innerHTML = payment ? '<i class="fas fa-edit"></i> تعديل راتب مدرس' : '<i class="fas fa-hand-holding-usd"></i> صرف راتب مدرس (نظام تفاعلي)';
+    document.getElementById('teach-pay-submit').innerHTML = payment ? '<i class="fas fa-save"></i> حفظ تعديل الراتب' : '<i class="fas fa-check"></i> تأكيد الدفع';
     calcTeacherSalary();
     showModal('pay-teacher-modal');
 }
 
 function calcTeacherSalary() {
-    if(!currentTeacherId) return;
+    if(currentTeacherId === null) return 0;
     let st = db.staff.find(x => x.id === currentTeacherId);
-    let serviceYears = getServiceYears(st);
+    if(!st) return 0;
+    let serviceYears = teacherPaymentServiceYears !== null ? teacherPaymentServiceYears : getServiceYears(st);
     
     document.getElementById('teach-pay-years').innerText = serviceYears;
     
@@ -1444,10 +1494,32 @@ function calcTeacherSalary() {
 function submitTeacherPayment() {
     let net = calcTeacherSalary();
     let dt = document.getElementById('teach-pay-date').value;
-    if(net > 0 && dt) {
-        db.staff.find(x => x.id === currentTeacherId).payments.push({amount: net, date: dt});
+    let st = db.staff.find(x => x.id === currentTeacherId);
+    if(net > 0 && dt && st) {
+        if(!Array.isArray(st.payments)) st.payments = [];
+        if(findPaymentInMonth(st, dt, editingTeacherPaymentIndex) !== -1) {
+            return customAlert('يوجد راتب مسجل لهذا المدرس في الشهر نفسه. افتح الدفعة السابقة واضغط تعديل.', 'warning');
+        }
+        let payment = {
+            amount: net,
+            date: dt,
+            lecPrice: parseFloat(document.getElementById('teach-pay-price').value) || 0,
+            serviceAmount: parseFloat(document.getElementById('teach-pay-service-amount').value) || 0,
+            monthlyLecs: parseFloat(document.getElementById('teach-pay-lecs').value) || 0,
+            students: parseFloat(document.getElementById('teach-pay-stds').value) || 0,
+            evalPts: parseFloat(document.getElementById('teach-pay-eval').value) || 0,
+            bonus: parseFloat(document.getElementById('teach-pay-bonus').value) || 0,
+            deduct: parseFloat(document.getElementById('teach-pay-deduct').value) || 0,
+            serviceYears: teacherPaymentServiceYears !== null ? teacherPaymentServiceYears : getServiceYears(st)
+        };
+        let isEditing = editingTeacherPaymentIndex !== null && st.payments[editingTeacherPaymentIndex];
+        if(isEditing) st.payments[editingTeacherPaymentIndex] = {...st.payments[editingTeacherPaymentIndex], ...payment};
+        else st.payments.push(payment);
         saveDB(); hideModal('pay-teacher-modal'); renderStaff(); renderDual(); renderDaily();
-        if(typeof Swal !== 'undefined') Swal.fire({toast:true, position:'top-end', icon:'success', title:'تم صرف راتب المدرس بنجاح', showConfirmButton:false, timer:1500});
+        if(typeof Swal !== 'undefined') Swal.fire({toast:true, position:'top-end', icon:'success', title:isEditing ? 'تم تعديل راتب المدرس' : 'تم صرف راتب المدرس بنجاح', showConfirmButton:false, timer:1500});
+        currentTeacherId = null;
+        editingTeacherPaymentIndex = null;
+        teacherPaymentServiceYears = null;
     } else { customAlert("الصافي يجب أن يكون أكبر من صفر والتاريخ مطلوب", "error"); }
 }
 
@@ -1458,9 +1530,13 @@ function renderStaffPaymentHistory(st) {
 
     let rows = st.payments.map((payment, index) => {
         let amount = parseFloat(payment.amount) || 0;
+        let editAction = st.isTeacher ? `payTeacher(${st.id}, ${index})` : `payStaff(${st.id}, ${index})`;
         return `<div class="flex-between" style="padding:6px 8px; border-bottom:1px solid var(--glass-border); gap:10px;">
             <small><i class="far fa-calendar"></i> ${payment.date || '-'}</small>
-            <b style="color:#2ecc71;">${amount.toLocaleString()} د.ع</b>
+            <div class="flex-row">
+                <b style="color:#2ecc71;">${amount.toLocaleString()} د.ع</b>
+                <button type="button" class="btn-3d warning btn-small m-0" onclick="${editAction}"><i class="fas fa-edit"></i> تعديل</button>
+            </div>
         </div>`;
     }).join('');
 
@@ -1480,7 +1556,7 @@ function renderStaff() {
         if(st.isTeacher) {
             return `<div class="list-item" style="border-right: 4px solid #f39c12;"><div class="flex-between"><div><strong><i class="fas fa-chalkboard-teacher text-warning"></i> ${st.name}</strong> <small>(${st.role})</small><br><small>التعيين: ${st.hiringYear}${startInfo}${serviceInfo} | المصروف: <span style="color:#2ecc71">${paid.toLocaleString()}</span></small></div><div class="flex-row"><button type="button" class="btn-3d warning btn-small m-0" onclick="payTeacher(${st.id})"><i class="fas fa-calculator"></i> راتب تفاعلي</button> <button type="button" class="btn-3d btn-small m-0" style="background:#a777e3;" onclick="editTeacher(${st.id})"><i class="fas fa-pen"></i></button> <button type="button" class="btn-3d danger btn-small m-0" onclick="deleteStaff(${st.id})"><i class="fas fa-trash"></i></button></div></div>${paymentHistory}</div>`;
         } else {
-            return `<div class="list-item" style="border-right: 4px solid #3498db;"><div class="flex-between"><div><strong><i class="fas fa-user-tie text-primary"></i> ${st.name}</strong> <small>(${st.role})</small><br><small>الراتب المقطوع: ${st.salary.toLocaleString()}${startInfo}${serviceInfo} | المصروف: <span style="color:#2ecc71">${paid.toLocaleString()}</span> | الباقي: <span style="color:#e74c3c">${(st.salary-paid).toLocaleString()}</span></small></div><div class="flex-row"><button type="button" class="btn-3d success btn-small m-0" onclick="payStaff(${st.id})"><i class="fas fa-hand-holding-usd"></i> صرف</button> <button type="button" class="btn-3d warning btn-small m-0" onclick="editStaff(${st.id})"><i class="fas fa-pen"></i></button> <button type="button" class="btn-3d danger btn-small m-0" onclick="deleteStaff(${st.id})"><i class="fas fa-trash"></i></button></div></div>${paymentHistory}</div>`;
+            return `<div class="list-item" style="border-right: 4px solid #3498db;"><div class="flex-between"><div><strong><i class="fas fa-user-tie text-primary"></i> ${st.name}</strong> <small>(${st.role})</small><br><small>الراتب المقطوع: ${st.salary.toLocaleString()}${startInfo}${serviceInfo} | المصروف: <span style="color:#2ecc71">${paid.toLocaleString()}</span></small></div><div class="flex-row"><button type="button" class="btn-3d success btn-small m-0" onclick="payStaff(${st.id})"><i class="fas fa-hand-holding-usd"></i> صرف</button> <button type="button" class="btn-3d warning btn-small m-0" onclick="editStaff(${st.id})"><i class="fas fa-pen"></i></button> <button type="button" class="btn-3d danger btn-small m-0" onclick="deleteStaff(${st.id})"><i class="fas fa-trash"></i></button></div></div>${paymentHistory}</div>`;
         }
     }).join('') || '<div class="text-center mt-3">لا توجد بيانات</div>';
     renderStaffMonthlyReport();
