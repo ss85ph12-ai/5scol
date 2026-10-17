@@ -4,7 +4,7 @@ const APP_CONFIG = {
     DB_KEY: 'skol_al_rhman_db',
     
     // 2. إصدار التطبيق (قم بتغييره لإجبار الأجهزة على تحديث النظام)
-    APP_VERSION: 'v25',
+    APP_VERSION: 'v26',
 
     // 3. إعدادات Firebase الخاصة بالنسخة
     FIREBASE_CONFIG: {
